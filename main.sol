@@ -19,11 +19,6 @@ contract DACOMain is Ownable {
     uint256 public minimumQuorum;
 
     /**
-     * @dev Duration of debates
-     */
-    uint256 public debatingPeriodInMinutes;
-
-    /**
      * @dev Majority margin is used in voting procedure
      */
     uint256 public majorityMargin;
@@ -45,6 +40,12 @@ contract DACOMain is Ownable {
     Member[] public members;
 
     /**
+     * @dev Count of members in archive
+     */
+    function numMembers() public view returns (uint256)
+    { return members.length; }
+
+    /**
      * @dev Get member identifier by account address
      */
     mapping(address => uint256) public memberId;
@@ -53,6 +54,12 @@ contract DACOMain is Ownable {
      * @dev Campaigns list
      */
     Campaign[] public campaigns;
+
+    /**
+     * @dev Count of campaigns in archive
+     */
+    function numCampaigns() public view returns (uint256)
+    { return campaigns.length; }
 
     // The token being sold
     DACOToken public token;
@@ -106,11 +113,9 @@ contract DACOMain is Ownable {
     /**
      * @dev On voting rules changed
      * @param minimumQuorum New minimal count of votes
-     * @param debatingPeriodInMinutes New debating duration
      * @param majorityMargin New majority margin value
      */
     event ChangeOfRules(uint256 indexed minimumQuorum,
-        uint256 indexed debatingPeriodInMinutes,
         uint256  indexed majorityMargin);
 
     struct Proposal {
@@ -152,12 +157,9 @@ contract DACOMain is Ownable {
     function DACOMain(
         address congressLeader
     ) public {
-        changeVotingRules(1, 10000, 1);
-        // It’s necessary to add an empty first member
-        addMember(0, ''); // and let's add the founder, to save a step later
-        if (congressLeader != 0) {
-            addMember(congressLeader, 'The Founder');
-        }
+        changeVotingRules(1, 1);
+
+        addMember(congressLeader, 'DACO committee');
 
         token = new DACOToken();
         rate = 1000;
@@ -205,21 +207,18 @@ contract DACOMain is Ownable {
     /**
      * @dev Change rules of voting
      * @param minimumQuorumForProposals Minimal count of votes
-     * @param minutesForDebate Debate deadline in minutes
      * @param marginOfVotesForMajority Majority margin value
      */
     function changeVotingRules(
         uint256 minimumQuorumForProposals,
-        uint256 minutesForDebate,
         uint256  marginOfVotesForMajority
     )
     public onlyOwner
     {
         minimumQuorum           = minimumQuorumForProposals;
-        debatingPeriodInMinutes = minutesForDebate;
         majorityMargin          = marginOfVotesForMajority;
 
-        ChangeOfRules(minimumQuorum, debatingPeriodInMinutes, majorityMargin);
+        ChangeOfRules(minimumQuorum, majorityMargin);
     }
 
     /**
@@ -289,7 +288,6 @@ contract DACOMain is Ownable {
             );
 
             token.mint(c.crowdsale, rate.mul(amountWei));
-            token.addCampaign(c.crowdsale);
 
             CampaignAdded(id, p.wallet, p.amount, p.description);
         }
@@ -335,7 +333,6 @@ contract DACOMain is Ownable {
         );
 
         token.mint(c.crowdsale, rate.mul(amountWei));
-        token.addCampaign(c.crowdsale);
 
         CampaignAdded(id, _wallet, _amount, _description);
     }
@@ -357,8 +354,6 @@ contract DACOMain is Ownable {
 
         campaign.isFinished = true;
         campaign.crowdsale.setFinalized();
-
-        token.removeCampaign(campaign.crowdsale);
         
         return true;
     }
