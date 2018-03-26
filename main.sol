@@ -25,77 +25,67 @@ contract DACOMain is Ownable {
 
     // ---====== MEMBERS ======---
     /**
-     * @dev Get delegate identifier by account address
+     * @dev Get delegate object by account address
      */
-    mapping(address => uint256) public memberId;
+    mapping(address => Member) members;
 
     /**
-     * @dev Congress members list
+     * @dev Congress members addresses list
      */
-    Member[] public members;
+    address[] public membersAddr;
 
     /**
      * @dev Count of members in archive
      */
     function numMembers() public view returns (uint256)
-    { return members.length; }
-
-
-
-    // ---====== PROPOSALS ======---
-    /**
-     * @dev List of all proposals
-     */
-    Proposal[] public proposals;
-
-    /**
-     * @dev Get proposal identifier by address
-     */
-    mapping(address => uint256) public proposalId;
-
-    /**
-     * @dev Count of proposals in list
-     */
-    function numProposals() public view returns (uint256)
-    { return proposals.length; }
+    { return membersAddr.length; }
 
 
 
     // ---====== CAMPAIGNS ======---
     /**
-     * @dev Get campaign identifier by account address
+     * @dev Get campaign object by account address
      */
-    mapping(address => uint256) public campaignId;
+    mapping(address => Campaign) campaigns;
 
     /**
-     * @dev Campaigns list
+     * @dev Campaigns addresses list
      */
-    Campaign[] public campaigns;
+    address[] public campaignsAddr;
 
     /**
      * @dev Count of campaigns in list
      */
     function numCampaigns() public view returns (uint256)
-    { return campaigns.length; }
+    { return campaignsAddr.length; }
+
+
+
+    // ---====== PROPOSALS ======---
+    /**
+     * @dev List of all proposals addresses
+     */
+    address[] public proposalsAddr;
+
+    /**
+     * @dev Count of proposals in list
+     */
+    function numProposals() public view returns (uint256)
+    { return proposalsAddr.length; }
 
 
 
     // ---====== FINISHED CAMPAIGNS ======---
     /**
-     * @dev Get finished campaign identifier by account address
-     */
-    mapping(address => uint256) public finishedCampaignId;
-
-    /**
      * @dev Campaigns list
      */
-    FinishedCampaign[] public finishedCampaigns;
+    address[] public finishedCampaignsAddr;
 
     /**
      * @dev Count of campaigns in list
      */
     function numFinishedCampaigns() public view returns (uint256)
-    { return finishedCampaigns.length; }
+    { return finishedCampaignsAddr.length; }
 
 
 
@@ -167,6 +157,20 @@ contract DACOMain is Ownable {
      * @dev On vote by member accepted
      * @param sender Proposal sender
      * @param wallet Proposal wallet
+     * @param supportsProposal Support proposal
+     * @param comment Comment
+     */
+//    event Verified(
+//        address indexed sender,
+//        address indexed wallet,
+//        bool indexed supportsProposal,
+//        string comment
+//    );
+
+    /**
+     * @dev On vote by member accepted
+     * @param sender Proposal sender
+     * @param wallet Proposal wallet
      * @param raisedAmount Raised amount
      * @param report Report
      */
@@ -197,51 +201,37 @@ contract DACOMain is Ownable {
         uint256  indexed majorityMargin
     );
 
-    struct Proposal {
+    struct Campaign {
+        bool isProposal;
+        bool isCampaign;
+        bool isFinishedCampaign;
+
+        uint indexProposal;
+        uint indexCampaign;
+        uint indexFinishedCampaign;
+
         address owner;
         address wallet;
         uint256 amount;
         string  description;
         string  link;
-        Vote[] votes;
+
+        address[] votesAddr;
         mapping(address => bool) voted;
+        mapping(address => Vote) voteData;
+
+        //address[] verifiedAddr;
+        //mapping(address => bool) verified;
+        //mapping(address => Vote) verifiedData;
+
         uint256 numberOfVotes;
         uint256 currentResult;
 
         uint256 proposalDate;
         bool proposalRejected;
-    }
-
-    struct Campaign {
-        address owner;
-        address wallet;
-        uint256 amount;
-        string  description;
-        string  link;
-        Vote[] votes;
-        mapping(address => bool) voted;
-        uint256 numberOfVotes;
-        uint256 currentResult;
-
-        uint256 proposalDate;
 
         uint256 campaignDate;
-    }
 
-    struct FinishedCampaign {
-        address owner;
-        address wallet;
-        uint256 amount;
-        string  description;
-        string  link;
-        Vote[] votes;
-        mapping(address => bool) voted;
-        uint256 numberOfVotes;
-        uint256 currentResult;
-
-        uint256 proposalDate;
-
-        uint256 campaignDate;
         uint256 finishDate;
         uint256 raisedAmount;
         string  report;
@@ -256,22 +246,22 @@ contract DACOMain is Ownable {
 
     struct Member {
         address member;
+        bool active;
+        bool isMember;
         string  name;
         string  link;
         uint256 memberSince;
-        uint256 numCampaigns;
-        uint256 numFinishedCampaigns;
-        mapping(address => uint256) memberCampaignId;
-        uint256[] campaignsIds;
-        mapping(address => uint256) memberFinishedCampaignId;
-        uint256[] finishedCampaignsIds;
+        address[] campaignsAddr;
+        address[] finishedCampaignsAddr;
+        uint index;
     }
 
     /**
      * @dev Modifier that allows only shareholders to vote and create new proposals
      */
     modifier onlyMembers {
-        require (memberId[msg.sender] != 0);
+        require (members[msg.sender].isMember);
+        require (members[msg.sender].active);
         _;
     }
 
@@ -280,8 +270,232 @@ contract DACOMain is Ownable {
      */
     function DACOMain() public {
         changeVotingRules(1, 1);
-        addMember(0, '', '');
-        newProposal(0, 0, '', '');
+    }
+
+    /**
+     * @dev Get member
+     * @param _address Member account address
+     */
+    function getMember(address _address) public view returns (
+        bool active,
+        bool isMember,
+        string name,
+        string link,
+        uint256 memberSince,
+        uint256 countCampaigns,
+        uint256 countFinishedCampaigns
+    ) {
+        return (
+            members[_address].active,
+            members[_address].isMember,
+            members[_address].name,
+            members[_address].link,
+            members[_address].memberSince,
+            members[_address].campaignsAddr.length,
+            members[_address].finishedCampaignsAddr.length
+        );
+    }
+
+    /**
+     * @dev Get campaign common information
+     * @param _address Campaign wallet address
+     */
+    function getCampaignCommonInfo(address _address) public view returns (
+        bool isProposal,
+        bool isCampaign,
+        bool isFinishedCampaign,
+        address owner,
+        address wallet,
+        uint256 amount,
+        string description
+    ) {
+        return (
+            campaigns[_address].isProposal,
+            campaigns[_address].isCampaign,
+            campaigns[_address].isFinishedCampaign,
+            campaigns[_address].owner,
+            campaigns[_address].wallet,
+            campaigns[_address].amount,
+            campaigns[_address].description
+        );
+    }
+
+    /**
+     * @dev Get info for proposals
+     * @param _address Campaign wallet address
+     */
+    function getCampaignProposalInfo(address _address) public view returns (
+        bool isProposal,
+        string link,
+        uint256 countVotes,
+        //uint256 countVerified,
+        uint256 currentResult,
+        uint256 proposalDate,
+        bool proposalRejected
+    ) {
+        return (
+            campaigns[_address].isProposal,
+            campaigns[_address].link,
+            campaigns[_address].votesAddr.length,
+            //campaigns[_address].verifiedAddr.length,
+            campaigns[_address].currentResult,
+            campaigns[_address].proposalDate,
+            campaigns[_address].proposalRejected
+        );
+    }
+
+    /**
+     * @dev Get info for active campaigns
+     * @param _address Campaign wallet address
+     */
+    function getCampaignActiveInfo(address _address) public view returns (
+        bool isCampaign,
+        string link,
+        uint256 countVotes,
+        //uint256 countVerified,
+        uint256 currentResult,
+        uint256 proposalDate,
+        uint256 campaignDate
+    ) {
+        return (
+            campaigns[_address].isCampaign,
+            campaigns[_address].link,
+            campaigns[_address].votesAddr.length,
+            //campaigns[_address].verifiedAddr.length,
+            campaigns[_address].currentResult,
+            campaigns[_address].proposalDate,
+            campaigns[_address].campaignDate
+        );
+    }
+
+    /**
+     * @dev Get info for finished campaigns
+     * @param _address Campaign wallet address
+     */
+    function getCampaignFinishedInfo(address _address) public view returns (
+        string link,
+        uint256 countVotes,
+        //uint256 countVerified,
+        uint256 campaignDate,
+        uint256 finishDate,
+        uint256 raisedAmount,
+        string report
+    ) {
+        return (
+            campaigns[_address].link,
+            campaigns[_address].votesAddr.length,
+            //campaigns[_address].verifiedAddr.length,
+            campaigns[_address].campaignDate,
+            campaigns[_address].finishDate,
+            campaigns[_address].raisedAmount,
+            campaigns[_address].report
+        );
+    }
+
+    /**
+     * @dev Get info for campaigns indexes
+     * @param _address Campaign wallet address
+     */
+    function getCampaignIndexInfo(address _address) public view returns (
+        uint indexProposal,
+        uint indexCampaign,
+        uint indexFinishedCampaign
+    ) {
+        return (
+            campaigns[_address].indexProposal,
+            campaigns[_address].indexCampaign,
+            campaigns[_address].indexFinishedCampaign
+        );
+    }
+
+    /**
+     * @dev Get member who vote for campaign
+     * @param _address Campaign wallet address
+     * @param _index Member index
+     */
+    function getCampaignVoteMemberAddress(address _address, uint256 _index) public view returns (
+        address
+    ) {
+        return (
+            campaigns[_address].votesAddr[_index]
+        );
+    }
+
+    /**
+     * @dev Get member who verified campaign
+     * @param _address Campaign wallet address
+     * @param _index Member index
+     */
+//    function getCampaignVerifiedMemberAddress(address _address, uint256 _index) public view returns (
+//        address
+//    ) {
+//        return (
+//            campaigns[_address].verifiedAddr[_index]
+//        );
+//    }
+
+    /**
+     * @dev Get campaign
+     * @param _addressCampaign Campaign wallet address
+     * @param _addressMember Member address
+     */
+    function getCampaignVoteObject(address _addressCampaign, address _addressMember) public view returns (
+        address wallet,
+        bool supportsProposal,
+        address sender,
+        string comment
+    ) {
+        return (
+            campaigns[_addressCampaign].voteData[_addressMember].wallet,
+            campaigns[_addressCampaign].voteData[_addressMember].supportsProposal,
+            campaigns[_addressCampaign].voteData[_addressMember].sender,
+            campaigns[_addressCampaign].voteData[_addressMember].comment
+        );
+    }
+
+    /**
+     * @dev Get campaign
+     * @param _addressCampaign Campaign wallet address
+     * @param _addressMember Member address
+     */
+//    function getCampaignVerifyObject(address _addressCampaign, address _addressMember) public view returns (
+//        address,
+//        bool,
+//        address,
+//        string
+//    ) {
+//        return (
+//            campaigns[_addressCampaign].verifiedData[_addressMember].wallet,
+//            campaigns[_addressCampaign].verifiedData[_addressMember].supportsProposal,
+//            campaigns[_addressCampaign].verifiedData[_addressMember].sender,
+//            campaigns[_addressCampaign].verifiedData[_addressMember].comment
+//        );
+//    }
+
+    /**
+     * @dev Get member campaign
+     * @param _memberAddress Campaign wallet address
+     * @param _index Campaign index
+     */
+    function getMemberCampaignAddress(address _memberAddress, uint256 _index) public view returns (
+        address
+    ) {
+        return (
+            members[_memberAddress].campaignsAddr[_index]
+        );
+    }
+
+    /**
+     * @dev Get member campaign
+     * @param _memberAddress Campaign wallet address
+     * @param _index Campaign index
+     */
+    function getMemberFinishedCampaignAddress(address _memberAddress, uint256 _index) public view returns (
+        address
+    ) {
+        return (
+            members[_memberAddress].finishedCampaignsAddr[_index]
+        );
     }
 
     /**
@@ -291,17 +505,17 @@ contract DACOMain is Ownable {
      * @param _memberLink Member site
      */
     function addMember(address _targetMember, string _memberName, string _memberLink) public onlyOwner {
-        require(memberId[_targetMember] == 0);
+        require(_targetMember != 0x0);
+        require(!members[_targetMember].isMember);
 
-        memberId[_targetMember] = members.length;
-        Member storage m  = members[memberId[_targetMember]];
+        members[_targetMember].index = membersAddr.push(_targetMember) - 1;
+        members[_targetMember].active = true;
+        members[_targetMember].isMember = true;
 
-        m.member = _targetMember;
-        m.name = _memberName;
-        m.link = _memberLink;
-        m.memberSince = now;
-        m.numCampaigns = 0;
-        m.numFinishedCampaigns = 0;
+        members[_targetMember].member = _targetMember;
+        members[_targetMember].name = _memberName;
+        members[_targetMember].link = _memberLink;
+        members[_targetMember].memberSince = now;
 
         MembershipChanged(_targetMember, true);
     }
@@ -311,20 +525,38 @@ contract DACOMain is Ownable {
      * @param _targetMember Member account address
      */
     function removeMember(address _targetMember) public onlyOwner {
-        require(memberId[_targetMember] != 0);
+        require(members[_targetMember].isMember);
 
-        uint256 targetId = memberId[_targetMember];
-        uint256 lastId   = members.length - 1;
+        members[_targetMember].active = false;
+        members[_targetMember].isMember = false;
 
-        // Move last member to removed position
-        Member memory moved    = members[lastId];
-        members[targetId]      = moved;
-        memberId[moved.member] = targetId;
+        uint rowToDelete = members[_targetMember].index;
+        address keyToMove   = membersAddr[membersAddr.length-1];
+        membersAddr[rowToDelete] = keyToMove;
+        members[keyToMove].index = rowToDelete;
+        membersAddr.length--;
 
-        // Clean up
-        memberId[_targetMember] = 0;
-        delete members[lastId];
-        --members.length;
+        MembershipChanged(_targetMember, false);
+    }
+
+    /**
+     * @dev Activate member
+     * @param _targetMember Member account address
+     */
+    function activateMember(address _targetMember) public onlyOwner {
+        require(members[_targetMember].isMember);
+        members[_targetMember].active = true;
+
+        MembershipChanged(_targetMember, true);
+    }
+
+    /**
+     * @dev Activate member
+     * @param _targetMember Member account address
+     */
+    function deactivateMember(address _targetMember) public onlyOwner {
+        require(members[_targetMember].isMember);
+        members[_targetMember].active = false;
 
         MembershipChanged(_targetMember, false);
     }
@@ -362,20 +594,25 @@ contract DACOMain is Ownable {
     public
     returns (uint256 id)
     {
-        require(proposalId[_wallet] == 0);
+        require(_wallet != 0x0);
+        require(!campaigns[_wallet].isProposal);
+        require(!campaigns[_wallet].isCampaign);
+        require(!campaigns[_wallet].isFinishedCampaign);
 
-        proposalId[_wallet] = proposals.length;
-        Proposal storage p  = proposals[proposalId[_wallet]];
+        campaigns[_wallet].indexProposal = proposalsAddr.push(_wallet) - 1;
+        campaigns[_wallet].isProposal = true;
+        campaigns[_wallet].isCampaign = false;
+        campaigns[_wallet].isFinishedCampaign = false;
 
-        p.owner = msg.sender;
-        p.wallet = _wallet;
-        p.amount = _amount;
-        p.description = _description;
-        p.link = _link;
-        p.numberOfVotes = 0;
-        p.currentResult = 0;
-        p.proposalDate = now;
-        p.proposalRejected = false;
+        campaigns[_wallet].owner = msg.sender;
+        campaigns[_wallet].wallet = _wallet;
+        campaigns[_wallet].amount = _amount;
+        campaigns[_wallet].description = _description;
+        campaigns[_wallet].link = _link;
+        campaigns[_wallet].numberOfVotes = 0;
+        campaigns[_wallet].currentResult = 0;
+        campaigns[_wallet].proposalDate = now;
+        campaigns[_wallet].proposalRejected = false;
 
         ProposalAdded(msg.sender, _wallet, _amount, _description, _link);
     }
@@ -399,27 +636,38 @@ contract DACOMain is Ownable {
     onlyMembers
     returns (uint256 id)
     {
-        require(campaignId[_wallet] == 0);
+        require(_wallet != 0x0);
+        require(!campaigns[_wallet].isProposal);
+        require(!campaigns[_wallet].isCampaign);
+        require(!campaigns[_wallet].isFinishedCampaign);
 
-        campaignId[_wallet] = campaigns.length;
-        Campaign storage c  = campaigns[campaignId[_wallet]];
+        campaigns[_wallet].indexCampaign = campaignsAddr.push(_wallet) - 1;
+        campaigns[_wallet].isProposal = false;
+        campaigns[_wallet].isCampaign = true;
+        campaigns[_wallet].isFinishedCampaign = false;
 
-        c.owner             = msg.sender;
-        c.wallet            = _wallet;
-        c.amount            = _amount;
-        c.description       = _description;
-        c.link              = _link;
-        c.numberOfVotes     = 1;
-        c.currentResult     = 1;
-        c.proposalDate      = now;
-        c.campaignDate      = now;
-        c.voted[msg.sender] = true;
-        c.votes.push(Vote({
-                wallet: _wallet,
-                supportsProposal: true,
-                sender: msg.sender,
-                comment: _comment
-            }));
+        campaigns[_wallet].owner = msg.sender;
+        campaigns[_wallet].wallet = _wallet;
+        campaigns[_wallet].amount = _amount;
+        campaigns[_wallet].description = _description;
+        campaigns[_wallet].link = _link;
+        campaigns[_wallet].numberOfVotes = 1;
+        campaigns[_wallet].currentResult = 1;
+        campaigns[_wallet].proposalDate = now;
+        campaigns[_wallet].campaignDate = now;
+        campaigns[_wallet].proposalRejected = false;
+        campaigns[_wallet].voted[msg.sender] = true;
+        campaigns[_wallet].votesAddr.push(msg.sender);
+
+        members[msg.sender].campaignsAddr.push(_wallet);
+
+        Vote memory v;
+        v.wallet = _wallet;
+        v.supportsProposal = true;
+        v.sender = msg.sender;
+        v.comment = _comment;
+
+        campaigns[_wallet].voteData[msg.sender] = v;
 
         CampaignAdded(msg.sender, _wallet, _amount, _description, _link);
     }
@@ -439,77 +687,76 @@ contract DACOMain is Ownable {
     onlyMembers
     returns (uint256 id)
     {
-        uint256 _proposalId = proposalId[_wallet];
-        require(_proposalId != 0);  // If proposal for this wallet exists
+        require(_wallet != 0x0);
+        require(campaigns[_wallet].isProposal);
+        require(!campaigns[_wallet].isCampaign);
+        require(!campaigns[_wallet].isFinishedCampaign);
 
-        Proposal storage p = proposals[_proposalId];     // Get the proposal
-        require(!p.voted[msg.sender]);  // If has already voted, cancel
-        require(!p.proposalRejected);  // If has already voted, cancel
+        require(!campaigns[_wallet].voted[msg.sender]);
+        require(!campaigns[_wallet].proposalRejected);
 
-        p.voted[msg.sender] = true;                     // Set this voter as having voted
-        p.numberOfVotes++;                              // Increase the number of votes
-        if (_supportsProposal) {                         // If they support the proposal
-            p.currentResult++;                          // Increase score
+        campaigns[_wallet].voted[msg.sender] = true; // Set this voter as having voted
+        campaigns[_wallet].votesAddr.push(msg.sender);
+
+
+        Vote memory v;
+        v.wallet = _wallet;
+        v.supportsProposal = _supportsProposal;
+        v.sender = msg.sender;
+        v.comment = _comment;
+
+        campaigns[_wallet].voteData[msg.sender] = v;
+
+//        if (!campaigns[_wallet].verified[msg.sender]) {
+//            campaigns[_wallet].verifiedData[msg.sender] = v;
+//            campaigns[_wallet].verified[msg.sender] = true;
+//            campaigns[_wallet].verifiedAddr.push(msg.sender);
+//        }
+
+        campaigns[_wallet].numberOfVotes++; // Increase the number of votes
+        if (_supportsProposal) { // If they support the proposal
+            campaigns[_wallet].currentResult++; // Increase score
         }
 
-        p.votes.push(Vote({
-            wallet: _wallet,
-            supportsProposal: _supportsProposal,
-            sender: msg.sender,
-            comment: _comment
-        }));
+        members[msg.sender].campaignsAddr.push(_wallet);
 
         // Create a log of this event
         Voted(msg.sender, _wallet,  _supportsProposal, _comment);
 
+        if (campaigns[_wallet].numberOfVotes >= minimumQuorum) {
+            if (campaigns[_wallet].currentResult >= majorityMargin) {
+                // Proposal passed; remove from proposalsAddr and create campaign
+                uint rowToDelete = campaigns[_wallet].indexProposal;
+                address keyToMove   = proposalsAddr[proposalsAddr.length-1];
+                proposalsAddr[rowToDelete] = keyToMove;
+                campaigns[keyToMove].indexProposal = rowToDelete;
+                proposalsAddr.length--;
 
-        if (p.numberOfVotes >= minimumQuorum) {
-            if (p.currentResult >= majorityMargin) {
-                // Proposal passed; create campaign
-                campaignId[_wallet] = campaigns.length;
-                Campaign storage c  = campaigns[campaignId[_wallet]];
+                campaigns[_wallet].indexProposal = 0;
+                campaigns[_wallet].indexCampaign = campaignsAddr.push(_wallet) - 1;
+                campaigns[_wallet].isProposal = false;
+                campaigns[_wallet].isCampaign = true;
+                campaigns[_wallet].isFinishedCampaign = false;
 
-                c.owner             = p.owner;
-                c.wallet            = p.wallet;
-                c.amount            = p.amount;
-                c.description       = p.description;
-                c.link              = p.link;
-                c.numberOfVotes     = p.numberOfVotes;
-                c.currentResult     = p.currentResult;
-                c.proposalDate      = p.proposalDate;
-                c.campaignDate      = p.campaignDate;
-                c.voted             = p.voted;
-                c.votes             = p.votes;
+                campaigns[_wallet].campaignDate = now;
 
-                uint256 _lastId   = proposals.length - 1;
-
-                // Move last item to removed position
-                Proposal memory moved    = proposals[_lastId];
-                proposals[_proposalId]     = moved;
-                proposalId[moved.wallet]   = _proposalId;
-
-                // Clean up
-                proposalId[_wallet] = 0;
-                delete proposals[_lastId];
-                --proposals.length;
-
-                ProposalPassed(msg.sender, c.owner, c.wallet, c.amount, c.description, c.link);
+                ProposalPassed(msg.sender, campaigns[_wallet].owner, campaigns[_wallet].wallet, campaigns[_wallet].amount, campaigns[_wallet].description, campaigns[_wallet].link);
             } else {
                 // Proposal failed
-                p.proposalRejected = true;
+                campaigns[_wallet].proposalRejected = true;
             }
         }
 
-        return p.numberOfVotes;
+        return campaigns[_wallet].numberOfVotes;
     }
 
     /**
-     * @dev Create a new campaign
+     * @dev Finish a campaign
      * @param _wallet Beneficiary account address
      * @param _raisedAmount Raised amount value in wei
      * @param _report Report
      */
-    function endCampaign(
+    function finishCampaign(
         address _wallet,
         uint256 _raisedAmount,
         string _report
@@ -518,43 +765,73 @@ contract DACOMain is Ownable {
     onlyMembers
     returns (bool)
     {
-        uint256 _campaignId = campaigns[_wallet];
-        require(_campaignId != 0);  // If campaign for this wallet exists
+        require(_wallet != 0x0);
+        require(!campaigns[_wallet].isProposal);
+        require(campaigns[_wallet].isCampaign);
+        require(!campaigns[_wallet].isFinishedCampaign);
 
-        Campaign storage c = campaigns[_campaignId]; // Get the campaign
+        require(campaigns[_wallet].voted[msg.sender]);
+        require(!campaigns[_wallet].proposalRejected);
 
-        finishedCampaignId[_wallet] = finishedCampaigns.length;
-        FinishedCampaign storage fc  = finishedCampaigns[finishedCampaignId[_wallet]];
+        // Campaign finished; remove from campaignsAddr and create finished campaign
+        uint rowToDelete = campaigns[_wallet].indexCampaign;
+        address keyToMove   = campaignsAddr[campaignsAddr.length-1];
+        campaignsAddr[rowToDelete] = keyToMove;
+        campaigns[keyToMove].indexCampaign = rowToDelete;
+        campaignsAddr.length--;
 
-        fc.owner             = c.owner;
-        fc.wallet            = c.wallet;
-        fc.amount            = c.amount;
-        fc.description       = c.description;
-        fc.link              = c.link;
-        fc.numberOfVotes     = c.numberOfVotes;
-        fc.currentResult     = c.currentResult;
-        fc.proposalDate      = c.proposalDate;
-        fc.campaignDate      = c.campaignDate;
-        fc.voted             = c.voted;
-        fc.votes             = c.votes;
-        fc.finishDate        = now;
-        fc.raisedAmount      = _raisedAmount;
-        fc.report            = _report;
+        campaigns[_wallet].indexProposal = 0;
+        campaigns[_wallet].indexCampaign = 0;
+        campaigns[_wallet].indexFinishedCampaign = finishedCampaignsAddr.push(_wallet) - 1;
+        campaigns[_wallet].isProposal = false;
+        campaigns[_wallet].isCampaign = false;
+        campaigns[_wallet].isFinishedCampaign = true;
 
-        uint256 _lastId   = campaigns.length - 1;
+        campaigns[_wallet].finishDate        = now;
+        campaigns[_wallet].raisedAmount      = _raisedAmount;
+        campaigns[_wallet].report            = _report;
 
-        // Move last item to removed position
-        Campaign memory moved    = campaigns[_lastId];
-        campaigns[_campaignId]     = moved;
-        proposalId[moved.wallet]   = _campaignId;
-
-        // Clean up
-        campaignId[_wallet] = 0;
-        delete campaigns[_lastId];
-        --campaigns.length;
+        members[msg.sender].finishedCampaignsAddr.push(_wallet);
 
         FinishCampaign(msg.sender, _wallet, _raisedAmount, _report);
         
         return true;
     }
+
+    /**
+     * @dev Verify a campaign
+     * @param _wallet Beneficiary account address
+     * @param _comment Comment
+     */
+//    function verifyCampaign(
+//        address _wallet,
+//        string _comment
+//    )
+//    public
+//    onlyMembers
+//    returns (bool)
+//    {
+//        require(_wallet != 0x0);
+//        require(!campaigns[_wallet].isProposal);
+//        require(campaigns[_wallet].isCampaign);
+//        require(!campaigns[_wallet].isFinishedCampaign);
+//
+//        require(!campaigns[_wallet].verified[msg.sender]);
+//
+//        campaigns[_wallet].verified[msg.sender] = true; // Set this voter as having verify
+//        campaigns[_wallet].verifiedAddr.push(msg.sender);
+//
+//        Vote memory v;
+//        v.wallet = _wallet;
+//        v.supportsProposal = true;
+//        v.sender = msg.sender;
+//        v.comment = _comment;
+//
+//        campaigns[_wallet].verifiedData[msg.sender] = v;
+//
+//        // Create a log of this event
+//        Verified(msg.sender, _wallet,  true, _comment);
+//
+//        return true;
+//    }
 }
