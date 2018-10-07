@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.25;
 
 import "./common/Ownable.sol";
 import "./common/SafeMath.sol";
@@ -271,7 +271,7 @@ contract DACOMain is Ownable {
     /**
      * @dev First time setup
      */
-    function DACOMain(address _refundCharityFabric) public {
+    constructor(address _refundCharityFabric) public {
         setCharityFabric(_refundCharityFabric);
         changeVotingRules(1, 1);
     }
@@ -485,7 +485,7 @@ contract DACOMain is Ownable {
         members[_targetMember].link = _memberLink;
         members[_targetMember].memberSince = now;
 
-        MembershipChanged(_targetMember, true);
+        emit MembershipChanged(_targetMember, true);
     }
 
     /**
@@ -496,7 +496,7 @@ contract DACOMain is Ownable {
         require(_newCharityFabric != 0x0);
         refundCharityFabric = _newCharityFabric;
 
-        CharityFabricChanged(refundCharityFabric);
+        emit CharityFabricChanged(refundCharityFabric);
     }
 
     /**
@@ -515,7 +515,7 @@ contract DACOMain is Ownable {
         members[keyToMove].index = rowToDelete;
         membersAddr.length--;
 
-        MembershipChanged(_targetMember, false);
+        emit MembershipChanged(_targetMember, false);
     }
 
     /**
@@ -526,7 +526,7 @@ contract DACOMain is Ownable {
         require(members[_targetMember].isMember);
         members[_targetMember].active = true;
 
-        MembershipChanged(_targetMember, true);
+        emit MembershipChanged(_targetMember, true);
     }
 
     /**
@@ -537,7 +537,7 @@ contract DACOMain is Ownable {
         require(members[_targetMember].isMember);
         members[_targetMember].active = false;
 
-        MembershipChanged(_targetMember, false);
+        emit MembershipChanged(_targetMember, false);
     }
 
     /**
@@ -554,7 +554,7 @@ contract DACOMain is Ownable {
         minimumQuorum           = _minimumQuorumForProposals;
         majorityMargin          = _marginOfVotesForMajority;
 
-        ChangeOfRules(minimumQuorum, majorityMargin);
+        emit ChangeOfRules(minimumQuorum, majorityMargin);
     }
 
     /**
@@ -606,7 +606,7 @@ contract DACOMain is Ownable {
         campaigns[_hash].proposalDate = now;
         campaigns[_hash].proposalRejected = false;
 
-        ProposalAdded(msg.sender, _hash, _description, _link);
+        emit ProposalAdded(msg.sender, _hash, _description, _link);
     }
 
     /**
@@ -673,7 +673,7 @@ contract DACOMain is Ownable {
 
         campaigns[_hash].voteData[msg.sender] = v;
 
-        CampaignAdded(msg.sender, _hash, _description, _link);
+        emit CampaignAdded(msg.sender, _hash, _description, _link);
 
         return createDonationsContract(_hash);
     }
@@ -718,13 +718,13 @@ contract DACOMain is Ownable {
         members[msg.sender].campaignsHash.push(_hash);
 
         // Create a log of this event
-        Voted(msg.sender, _hash,  _supportsProposal, _comment);
+        emit Voted(msg.sender, _hash,  _supportsProposal, _comment);
 
         if (campaigns[_hash].numberOfVotes >= minimumQuorum) {
             if (campaigns[_hash].currentResult >= majorityMargin) {
                 // Proposal passed; remove from proposalsHash and create campaign
                 uint rowToDelete = campaigns[_hash].indexProposal;
-                address keyToMove   = proposalsHash[proposalsHash.length-1];
+                bytes32 keyToMove   = proposalsHash[proposalsHash.length-1];
                 proposalsHash[rowToDelete] = keyToMove;
                 campaigns[keyToMove].indexProposal = rowToDelete;
                 proposalsHash.length--;
@@ -737,7 +737,7 @@ contract DACOMain is Ownable {
 
                 campaigns[_hash].campaignDate = now;
 
-                ProposalPassed(msg.sender, _hash, campaigns[_hash].owner, campaigns[_hash].description, campaigns[_hash].link);
+                emit ProposalPassed(msg.sender, _hash, campaigns[_hash].owner, campaigns[_hash].description, campaigns[_hash].link);
 
                 createDonationsContract(_hash);
             } else {
@@ -773,7 +773,7 @@ contract DACOMain is Ownable {
 
         // Campaign finished; remove from campaignsHash and create finished campaign
         uint rowToDelete = campaigns[_hash].indexCampaign;
-        address keyToMove   = campaignsHash[campaignsHash.length-1];
+        bytes32 keyToMove   = campaignsHash[campaignsHash.length-1];
         campaignsHash[rowToDelete] = keyToMove;
         campaigns[keyToMove].indexCampaign = rowToDelete;
         campaignsHash.length--;
@@ -791,7 +791,7 @@ contract DACOMain is Ownable {
 
         members[msg.sender].finishedCampaignsHash.push(_hash);
 
-        FinishCampaign(msg.sender, _hash, _raisedAmount, _report);
+        emit FinishCampaign(msg.sender, _hash, _raisedAmount, _report);
         
         return true;
     }
@@ -819,7 +819,7 @@ contract DACOMain is Ownable {
 
         campaigns[_hash].donationContract = newContract;
 
-        CreateDonationContract(msg.sender, _hash, newContract);
+        emit CreateDonationContract(msg.sender, _hash, newContract);
 
         return newContract;
     }

@@ -1,4 +1,4 @@
-pragma solidity ^0.4.23;
+pragma solidity ^0.4.25;
 
 import "./SafeMath.sol";
 import "./Ownable.sol";
@@ -26,7 +26,7 @@ contract RefundVault is Ownable {
   /**
    * @param _wallets Vault addresses
    */
-  function RefundVault(address[] _wallets, uint256[] _amounts) public {
+  constructor(address[] _wallets, uint256[] _amounts) public {
     require(_wallets.length == _amounts.length);
 
     for (uint i = 0; i < _wallets.length; i++) {
@@ -51,7 +51,7 @@ contract RefundVault is Ownable {
     state = State.Closed;
     emit Closed();
     for (uint i = 0; i < wallets.length; i++) {
-      wallets[i].send(amounts[i]);
+      wallets[i].transfer(amounts[i]);
     }
   }
 
@@ -214,7 +214,7 @@ contract RefundCharity is Ownable {
    * @param _goals Donations goal
    * @param _closingTime Donation closing time
    */
-  function RefundCharity(
+  constructor(
     address[] _wallets,
     uint256[] _goals,
     uint256 _closingTime
